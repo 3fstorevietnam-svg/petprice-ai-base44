@@ -298,25 +298,33 @@ Deno.serve(async (req) => {
     const recDate = body?.rec_date || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const today = recDate;
 
-    const productsRaw = await base44.asServiceRole.entities.Product.filter(
-      { status: 'active' },
-      '-updated_date',
-      ENTITY_LOAD_LIMIT
-    );
+    const offset = Math.max(0, toNumber(body?.offset, 0));
+const limit = Math.max(1, Math.min(25, toNumber(body?.limit, DEFAULT_BATCH_LIMIT)));
+    const productsRaw = await base44.asServiceRole.entities.Product.list(
+  '-updated_date',
+  limit,
+  offset
+);
 
-    const products = uniqueProductsBySku(productsRaw);
+const products = uniqueProductsBySku(productsRaw)
+  .filter(product => product.status === 'active');
 
-    if (products.length === 0) {
-      return Response.json({
-        success: true,
-        processed: 0,
-        created: 0,
-        updated: 0,
-        failed: 0,
-        total_products_loaded: 0,
-        today,
-      });
-    }
+if (!Array.isArray(productsRaw) || productsRaw.length === 0) {
+  return Response.json({
+    success: true,
+    version: COMBO_VERSION_TAG,
+    processed: 0,
+    created: 0,
+    updated: 0,
+    failed: 0,
+    total_products_loaded: 0,
+    offset,
+    next_offset: offset,
+    has_more: false,
+    limit,
+    today,
+  });
+}
 
     const allPerf = await base44.asServiceRole.entities.DailyPerformance.list('-date', 5000);
     const perfBySku = {};
