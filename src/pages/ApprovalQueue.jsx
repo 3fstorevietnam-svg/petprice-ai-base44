@@ -163,10 +163,20 @@ export default function ApprovalQueue() {
 
   const runAI = async () => {
     setRunning(true);
+    let offset = 0;
+    const limit = 10;
+    let totalProcessed = 0, totalCreated = 0, totalUpdated = 0;
     try {
-      const res = await base44.functions.invoke('generatePricingSuggestions', {});
-      const { created = 0, skipped = 0, processed = 0 } = res.data || {};
-      toast.success(`${processed} SKUs xử lý — ${created} gợi ý mới, ${skipped} đã có.`);
+      while (true) {
+        const res = await base44.functions.invoke('generatePricingSuggestions', { offset, limit });
+        const d = res.data || {};
+        totalProcessed += d.processed || 0;
+        totalCreated   += d.created || 0;
+        totalUpdated   += d.updated || 0;
+        if (!d.has_more) break;
+        offset = d.next_offset;
+      }
+      toast.success(`AI xong! ${totalProcessed} SKUs xử lý — ${totalCreated} mới, ${totalUpdated} cập nhật.`);
       load();
     } catch (e) {
       toast.error('Phân tích thất bại: ' + e.message);
